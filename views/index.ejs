@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="vi">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Game demo</title>
+</head>
+
+<body>
+    <form>
+        <input type="text" name="" id="username" value="thien">
+        <input type="password" name="" id="password" value="123">
+        <input type="button" value="login" id="login"><br /><br />
+    </form>
+    <div style="display: none;" id="func">
+        Xin chào: <span id="u"></span>
+        Coin: <span id="coin">0</span>
+        <input type="button" value="Nạp tiền" id="recharge"><br /><br />
+        <input type="button" value="Vào phòng game bài" id="f">
+        <input type="button" value="rời phòng game bài" id="unf">
+    </div><br /><br /><br />
+    <div style="display: none;" id="func_gambling">
+        <form>
+            Phiên: <span id="session"></span><br />
+            Thời gian còn lại: <span id="time_remaining">0</span> giây<br />
+            Tổng tài: <span id="even">0</span> (Cược <span id="is_even">0</span>) <br />
+            Tổng xỉu: <span id="odd">0</span> (Cược <span id="is_odd">0</span>)<br />
+            Kêt quả: <span id="result"></span><br />
+            Cược: <input type="number" id="bet_number">
+            <input type="radio" name="cuoc" id="bet_even" value="bet_even">Tài
+            <input type="radio" name="cuoc" id="bet_odd" value="bet_odd" checked>Xỉu
+            <button id="bet">Cược</button><br />
+        </form><br /><br />
+        <textarea name="" id="text" cols="30" rows="10"></textarea>
+        <button id="chat">chat</button>
+        <div id="notification"></div>
+    </div>
+
+</body>
+<!-- Thêm thư viện socket.io mà server cung cấp -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.4.1/socket.io.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.4.1/jquery.min.js"></script>
+
+<script>
+    var socket = null;
+
+    $("#login").click(function () {
+        let username = $("#username").val();
+        let password = $("#password").val();
+
+        $.ajax({
+            url: "http://localhost:8000/api/v1/auth/login",
+            method: "POST",
+            data: JSON.stringify({ username, password }),
+            headers: { "content-type": "application/json" },
+            dataType: "json"
+        }).done(function (data) {
+            console.log(data);
+            $("#func").show();
+            $("#u").text(data.d.user.username);
+            $("#coin").text(data.d.user.coin);
+            connectionSocketGame(data.d.token);
+        }).fail(function (err) {
+            alert(err.responseJSON.m);
+        });
+    });
+    $("#bet").click(function (btn) {
+        btn.preventDefault();
+        let even = $('input[name=cuoc]:checked').val() == "bet_even";
+        let odd = even == false;
+        let bet = $("#bet_number").val();
+        socket.json({ talent: { bet: { even, odd, bet } } });
+    });
+    $("#f").click(function () {
+        socket.json({ talent: { follow: true } });
+        $("#func_gambling").show();
+    });
+    $("#unf").click(function () {
+        socket.json({ talent: { follow: false } });
+        $("#func_gambling").hide();
+    });
+    $("#recharge").click(function () {
+        socket.json({ user: { rechargeScatchCard: { code: 1, price: 100000 } } });
+    });
+    $("#chat").click(function () {
+        let text = $("#text").val();
+        socket.json({ talent: { chat: { message: text } } });
+    });
+
+    const connectionSocketGame = (token) => {
+        socket = new WebSocket("ws://localhost:8000/socket/?token=" + token);
+        socket.onopen = function () {
+            $("#notification").append("<p>kết nối thành công!</p>");
+            socket.json({ user: { follow: true } });
+        }
+        socket.onclose = function () {
+            $("#notification").append("<p>mất kết nối tới máy chủ!</p>");
+        }
+        socket.onmessage = function (m) {
+            let json = JSON.parse(m.data);
+            if (json.talent !== undefined) {
+                if (json.talent.chat) {
+                    $("#notification").append(`<p>${json.talent.chat.username}:${json.talent.chat.comment}`);
+                }
+                if (json.talent.session) {
+                    let s = json.talent.session;
+                    let session = s.session;
+                    let timeRemaining = s.timeRemaining;
+                    let even = s.even;
+                    let odd = s.odd;
+                    let totalBet = s.totalBet;
+                    let typeBet = s.typeBet;
+                    let result = s.result;
+                    $("#session").text(session);
+                    $("#time_remaining").text(timeRemaining);
+                    $("#even").text(even);
+                    $("#odd").text(odd);
+                    if (typeBet != null) {
+                        $(`#is_${typeBet}`).text(totalBet);
+                    } else {
+                        $("#is_odd").text("0");
+                        $("#is_even").text("0");
+                    }
+                    if (result != null) {
+                        $("#result").text(result < 10 ? "XỈU" : "TÀI");
+                    } else {
+                        $("#result").text("..........");
+                    }
+                }
+            }
+            if (json.user !== undefined) {
+                $("#coin").text(json.user.coin);
+            }
+            if (json.success !== undefined) {
+                alert(json.success);
+            }
+            if (json.error !== undefined) {
+                alert(json.error);
+            }
+        }
+        socket.json = function (j) {
+            socket.send(JSON.stringify(j));
+        }
+    }
+</script>
+
+</html>
