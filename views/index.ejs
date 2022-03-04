@@ -9,9 +9,10 @@
 
 <body>
     <form>
-        <input type="text" name="" id="username" value="thien">
-        <input type="password" name="" id="password" value="123">
-        <input type="button" value="login" id="login"><br /><br />
+        <input type="text" name="" id="username" value="">
+        <input type="password" name="" id="password" value="">
+        <input type="button" value="login" id="login">
+        <input type="button" value="register" id="register"><br /><br />
     </form>
     <div style="display: none;" id="func">
         Xin chào: <span id="u"></span>
@@ -44,13 +45,14 @@
 
 <script>
     var socket = null;
-
+    let url = location.origin;
+    let host = location.host;
     $("#login").click(function () {
         let username = $("#username").val();
         let password = $("#password").val();
 
         $.ajax({
-            url: "http://localhost:8000/api/v1/auth/login",
+            url: url + "/api/v1/auth/login",
             method: "POST",
             data: JSON.stringify({ username, password }),
             headers: { "content-type": "application/json" },
@@ -61,6 +63,22 @@
             $("#u").text(data.d.user.username);
             $("#coin").text(data.d.user.coin);
             connectionSocketGame(data.d.token);
+        }).fail(function (err) {
+            alert(err.responseJSON.m);
+        });
+    });
+    $("#register").click(function () {
+        let username = $("#username").val();
+        let password = $("#password").val();
+
+        $.ajax({
+            url: url + "/api/v1/auth/register",
+            method: "POST",
+            data: JSON.stringify({ username, password }),
+            headers: { "content-type": "application/json" },
+            dataType: "json"
+        }).done(function (data) {
+            alert(data.m);
         }).fail(function (err) {
             alert(err.responseJSON.m);
         });
@@ -89,7 +107,7 @@
     });
 
     const connectionSocketGame = (token) => {
-        socket = new WebSocket("ws://localhost:8000/socket/?token=" + token);
+        socket = new WebSocket("ws://" + host + "/socket/?token=" + token);
         socket.onopen = function () {
             $("#notification").append("<p>kết nối thành công!</p>");
             socket.json({ user: { follow: true } });

@@ -29,7 +29,6 @@ const wssRouter = (ws) => {
             require("../controllers/user.controller")(ws, command.user);
     });
     ws.on("close", () => {
-        console.log("AHIHHI");
         global.online--;
     });
 }
